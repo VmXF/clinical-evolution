@@ -5,6 +5,7 @@
   const DB_VERSION = 1;
   const STORE_NAME = "app";
   const STATE_KEY = "state";
+  const BACKUP_HANDLE_KEY = "external-backup-file-handle";
   const DEFAULT_BEDS = ["101", "102", "103"];
   const ANTIBIOTICS = [
     "Amicacina", "Amoxicilina/Clavulanato", "Ampicilina", "Ampicilina/Sulbactam",
@@ -20,6 +21,12 @@
   let state = { beds: [...DEFAULT_BEDS], patients: [] };
   let currentPatientId = null;
   let modalCleanup = null;
+  let externalBackupHandle = null;
+  let externalBackupWriting = false;
+  let externalBackupPending = false;
+  let externalBackupLastSavedAt = null;
+  let externalBackupStatus = "unconfigured";
+  let storageIsPersistent = null;
 
   function uid() {
     return window.crypto?.randomUUID?.() || `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -56,6 +63,12 @@
     const date = parseISO(iso);
     if (!date) return "";
     return `${String(date.getUTCDate()).padStart(2, "0")}/${String(date.getUTCMonth() + 1).padStart(2, "0")}/${String(date.getUTCFullYear()).slice(-2)}`;
+  }
+
+  function toDayMonth(iso) {
+    const date = parseISO(iso);
+    if (!date) return "";
+    return `${String(date.getUTCDate()).padStart(2, "0")}/${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
   }
 
   function escapeHTML(value) {
@@ -98,11 +111,37 @@
     });
   }
 
+  function readAppValue(key) {
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, "readonly");
+      const request = transaction.objectStore(STORE_NAME).get(key);
+      request.onsuccess = () => resolve(request.result ?? null);
+      request.onerror = () => reject(request.error || new Error("Falha ao ler a configuração local."));
+    });
+  }
+
+  function writeAppValue(key, value) {
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, "readwrite");
+      transaction.objectStore(STORE_NAME).put(value, key);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error || new Error("Falha ao gravar a configuração local."));
+      transaction.onabort = () => reject(transaction.error || new Error("Gravação da configuração cancelada."));
+    });
+  }
+
+  function makeBackupPayload() {
+    return { app: "Minha Enfermaria", version: 1, exportedAt: new Date().toISOString(), state };
+  }
+
   function persist() {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, "readwrite");
       transaction.objectStore(STORE_NAME).put(state, STATE_KEY);
-      transaction.oncomplete = () => resolve();
+      transaction.oncomplete = () => {
+        resolve();
+        scheduleExternalBackup();
+      };
       transaction.onerror = () => reject(transaction.error || new Error("Falha ao gravar os dados locais."));
       transaction.onabort = () => reject(transaction.error || new Error("Gravação local cancelada."));
     });
@@ -120,6 +159,226 @@
     toast.classList.add("show");
     clearTimeout(showToast.timer);
     showToast.timer = setTimeout(() => toast.classList.remove("show"), 2200);
+  }
+
+  function updateExternalBackupUI() {
+    const button = $("#configureExternalBackupButton");
+    const changeButton = $("#changeExternalBackupButton");
+    const notice = $("#externalBackupNotice");
+    if (!button || !notice) return;
+
+    changeButton.hidden = !externalBackupHandle;
+    if (!externalBackupHandle) {
+      button.textContent = "Configurar backup automático";
+      notice.textContent = "Nenhum arquivo externo configurado. Escolha um arquivo JSON em uma pasta do celular para receber as cópias automáticas.";
+      notice.dataset.status = "off";
+      return;
+    }
+
+    if (externalBackupStatus === "active") {
+      button.textContent = "Sincronizar backup agora";
+      const when = externalBackupLastSavedAt ? ` · Última cópia: ${externalBackupLastSavedAt.toLocaleString("pt-BR")}` : "";
+      notice.textContent = `Backup automático ativo: ${externalBackupHandle.name || "arquivo JSON"}${when}.`;
+      notice.dataset.status = "ok";
+    } else if (externalBackupStatus === "syncing") {
+      button.textContent = "Backup automático ativo";
+      notice.textContent = `Atualizando ${externalBackupHandle.name || "o arquivo JSON"}…`;
+      notice.dataset.status = "pending";
+    } else if (externalBackupStatus === "permission") {
+      button.textContent = "Reautorizar backup automático";
+      notice.textContent = `Arquivo configurado: ${externalBackupHandle.name || "backup JSON"}. O Chrome precisa que você autorize novamente o acesso para continuar atualizando o arquivo.`;
+      notice.dataset.status = "warn";
+    } else {
+      button.textContent = "Tentar backup automático novamente";
+      notice.textContent = `Arquivo configurado: ${externalBackupHandle.name || "backup JSON"}, mas a última gravação falhou. ${externalBackupStatus === "error" ? "Verifique se o arquivo ou a pasta continuam disponíveis." : ""}`;
+      notice.dataset.status = "warn";
+    }
+  }
+
+  function updateStorageProtectionUI() {
+    const notice = $("#storageNotice");
+    const button = $("#protectStorageButton");
+    if (!notice) return;
+    if (storageIsPersistent === true) {
+      notice.textContent = "Armazenamento local protegido contra remoção automática por pressão de espaço. A exclusão manual dos dados do site continua podendo apagá-los.";
+      notice.dataset.status = "ok";
+      if (button) button.hidden = true;
+    } else if (storageIsPersistent === false) {
+      notice.textContent = "Proteção persistente não concedida pelo navegador. O backup externo automático é recomendado.";
+      notice.dataset.status = "warn";
+      if (button) button.hidden = false;
+    } else {
+      notice.textContent = "Verificando proteção do armazenamento local…";
+      notice.dataset.status = "pending";
+    }
+  }
+
+  async function refreshStorageProtection(requestProtection = false) {
+    if (!navigator.storage || typeof navigator.storage.persisted !== "function") {
+      storageIsPersistent = null;
+      const notice = $("#storageNotice");
+      if (notice) {
+        notice.textContent = "Este navegador não disponibiliza a verificação de armazenamento persistente.";
+        notice.dataset.status = "warn";
+      }
+      const button = $("#protectStorageButton");
+      if (button) button.hidden = true;
+      return;
+    }
+    try {
+      let persisted = await navigator.storage.persisted();
+      if (!persisted && requestProtection && typeof navigator.storage.persist === "function") {
+        persisted = await navigator.storage.persist();
+      }
+      storageIsPersistent = Boolean(persisted);
+    } catch (_) {
+      storageIsPersistent = false;
+    }
+    updateStorageProtectionUI();
+  }
+
+  async function protectLocalStorage() {
+    await refreshStorageProtection(true);
+    showToast(storageIsPersistent ? "Proteção persistente concedida." : "O navegador não concedeu a proteção persistente.");
+  }
+
+  async function loadExternalBackupHandle() {
+    try {
+      externalBackupHandle = await readAppValue(BACKUP_HANDLE_KEY);
+      if (!externalBackupHandle) {
+        externalBackupStatus = "unconfigured";
+        updateExternalBackupUI();
+        return;
+      }
+      const permission = typeof externalBackupHandle.queryPermission === "function"
+        ? await externalBackupHandle.queryPermission({ mode: "readwrite" })
+        : "prompt";
+      externalBackupStatus = permission === "granted" ? "active" : "permission";
+      updateExternalBackupUI();
+      if (permission === "granted") scheduleExternalBackup();
+    } catch (_) {
+      externalBackupStatus = "error";
+      updateExternalBackupUI();
+    }
+  }
+
+  async function writeExternalBackupFile(handle) {
+    const writable = await handle.createWritable();
+    try {
+      await writable.write(JSON.stringify(makeBackupPayload(), null, 2));
+      await writable.close();
+      externalBackupLastSavedAt = new Date();
+      externalBackupStatus = "active";
+      updateExternalBackupUI();
+    } catch (error) {
+      try { await writable.abort(); } catch (_) { /* mantém o erro original */ }
+      throw error;
+    }
+  }
+
+  function scheduleExternalBackup() {
+    if (!externalBackupHandle) return;
+    externalBackupPending = true;
+    if (externalBackupStatus !== "permission" && externalBackupStatus !== "error") externalBackupStatus = "syncing";
+    updateExternalBackupUI();
+    if (!externalBackupWriting) void processExternalBackupQueue();
+  }
+
+  async function processExternalBackupQueue() {
+    if (externalBackupWriting || !externalBackupHandle) return;
+    externalBackupWriting = true;
+    try {
+      while (externalBackupPending && externalBackupHandle) {
+        externalBackupPending = false;
+        const handle = externalBackupHandle;
+        const permission = typeof handle.queryPermission === "function"
+          ? await handle.queryPermission({ mode: "readwrite" })
+          : "prompt";
+        if (permission !== "granted") {
+          externalBackupStatus = "permission";
+          updateExternalBackupUI();
+          break;
+        }
+        try {
+          await writeExternalBackupFile(handle);
+        } catch (error) {
+          externalBackupStatus = "error";
+          updateExternalBackupUI();
+          console.warn("Backup externo não atualizado:", error);
+          break;
+        }
+      }
+    } catch (error) {
+      externalBackupStatus = "error";
+      updateExternalBackupUI();
+      console.warn("Falha na rotina de backup externo:", error);
+    } finally {
+      externalBackupWriting = false;
+      if (externalBackupPending && externalBackupHandle) void processExternalBackupQueue();
+    }
+  }
+
+  function externalBackupPickerOptions() {
+    return {
+      id: "minha-enfermaria-backup",
+      suggestedName: "backup-minha-enfermaria.json",
+      types: [{
+        description: "Backup da Minha Enfermaria (JSON)",
+        accept: { "application/json": [".json"] }
+      }]
+    };
+  }
+
+  async function chooseExternalBackupFile() {
+    if (typeof window.showSaveFilePicker !== "function") {
+      showToast("Este navegador não permite gravação automática em arquivo. Use Exportar backup manual.");
+      return;
+    }
+    try {
+      // O seletor é chamado diretamente a partir do clique do usuário.
+      const handle = await window.showSaveFilePicker(externalBackupPickerOptions());
+      externalBackupHandle = handle;
+      await writeAppValue(BACKUP_HANDLE_KEY, handle);
+      externalBackupStatus = "active";
+      updateExternalBackupUI();
+      scheduleExternalBackup();
+      showToast("Arquivo externo configurado. As próximas alterações serão copiadas automaticamente enquanto a permissão estiver ativa.");
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        externalBackupStatus = "error";
+        updateExternalBackupUI();
+        showToast(error.message || "Não foi possível configurar o arquivo de backup.");
+      }
+    }
+  }
+
+  async function manageExternalBackup() {
+    if (!externalBackupHandle) {
+      await chooseExternalBackupFile();
+      return;
+    }
+    try {
+      // requestPermission é invocado pelo gesto explícito do usuário.
+      const permission = await externalBackupHandle.requestPermission({ mode: "readwrite" });
+      if (permission !== "granted") {
+        externalBackupStatus = "permission";
+        updateExternalBackupUI();
+        showToast("O acesso ao arquivo não foi autorizado.");
+        return;
+      }
+      externalBackupStatus = "active";
+      updateExternalBackupUI();
+      scheduleExternalBackup();
+      showToast("Permissão concedida. O backup será atualizado agora e nas próximas alterações.");
+    } catch (error) {
+      externalBackupStatus = "error";
+      updateExternalBackupUI();
+      showToast(error.message || "Não foi possível atualizar o backup externo.");
+    }
+  }
+
+  async function changeExternalBackupFile() {
+    await chooseExternalBackupFile();
   }
 
   function showModal(title, bodyHTML, onSubmit, submitLabel = "Salvar") {
@@ -196,18 +455,89 @@
     const allOpen = active.reduce((sum, patient) => sum + patient.pendings.filter(item => !item.done).length, 0);
     $("#activeCount").textContent = String(active.length);
     $("#openPendingCount").textContent = String(allOpen);
-    const archived = state.patients.filter(patient => patient.status === "archived");
-    const archivedSection = $("#archivedPatients");
-    archivedSection.hidden = archived.length === 0;
-    archivedSection.innerHTML = archived.length ? `
-      <h2>Pacientes com alta</h2>
-      <div class="archived-list">${archived.map(patient => `
-        <button type="button" class="archived-item" data-patient-id="${escapeHTML(patient.id)}">
-          <span><strong>Leito ${escapeHTML(patient.bed)}</strong> · ${escapeHTML(patient.label || "Paciente")}</span>
-          <small>Alta: ${fmtDate(patient.dischargedAt)}</small>
-        </button>`).join("")}</div>` : "";
-    archivedSection.querySelectorAll("[data-patient-id]").forEach(button => button.addEventListener("click", () => openPatient(button.dataset.patientId)));
+    renderArchivedPatients();
     $("#addBedButton").disabled = false;
+  }
+
+
+  function monthFolderLabel(isoMonth) {
+    const [year, month] = isoMonth.split("-").map(Number);
+    const names = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+    return `${names[month - 1]}/${year}`;
+  }
+
+  function renderArchivedPatients() {
+    const archivedSection = $("#archivedPatients");
+    const archived = state.patients.filter(patient => patient.status === "archived");
+    archivedSection.hidden = archived.length === 0;
+    if (!archived.length) {
+      archivedSection.replaceChildren();
+      return;
+    }
+
+    // A alta é a chave de organização; o ID interno permanece como identidade
+    // real do registro, pois o número do leito pode ser reutilizado.
+    const months = new Map();
+    archived.forEach(patient => {
+      const dischargeDate = parseISO(patient.dischargedAt) ? patient.dischargedAt : "sem-data";
+      const monthKey = dischargeDate === "sem-data" ? "0000-00" : dischargeDate.slice(0, 7);
+      if (!months.has(monthKey)) months.set(monthKey, new Map());
+      const days = months.get(monthKey);
+      if (!days.has(dischargeDate)) days.set(dischargeDate, []);
+      days.get(dischargeDate).push(patient);
+    });
+
+    const monthHTML = [...months.entries()]
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([monthKey, days], monthIndex) => {
+        const monthLabel = monthKey === "0000-00" ? "Data de alta não informada" : monthFolderLabel(monthKey);
+        const count = [...days.values()].reduce((sum, patients) => sum + patients.length, 0);
+        const dayHTML = [...days.entries()]
+          .sort(([a], [b]) => b.localeCompare(a))
+          .map(([date, patients]) => `
+            <section class="archive-day">
+              <h3>${date === "sem-data" ? "Data não informada" : fmtDate(date)}</h3>
+              <div class="archive-day-list">${patients.sort((a, b) => String(a.bed).localeCompare(String(b.bed), "pt-BR", { numeric: true })).map(patient => `
+                <div class="archive-entry">
+                  <button type="button" class="archive-open" data-patient-id="${escapeHTML(patient.id)}">
+                    <span class="archive-entry-title">Leito ${escapeHTML(patient.bed)} — Internação ${toDayMonth(patient.admissionDate)}</span>
+                    ${patient.label ? `<small>${escapeHTML(patient.label)}</small>` : ""}
+                  </button>
+                  <button type="button" class="archive-delete" data-delete-patient-id="${escapeHTML(patient.id)}" aria-label="Excluir registro do leito ${escapeHTML(patient.bed)}" title="Excluir registro">Excluir</button>
+                </div>`).join("")}</div>
+            </section>`).join("");
+        return `
+          <details class="archive-month" ${monthIndex === 0 ? "open" : ""}>
+            <summary><span>${escapeHTML(monthLabel)}</span><small>${count} registro(s)</small></summary>
+            <div class="archive-month-content">${dayHTML}</div>
+          </details>`;
+      }).join("");
+
+    archivedSection.innerHTML = `
+      <div class="archive-folder-heading"><h2>Altas</h2><span>${archived.length} registro(s)</span></div>
+      <div class="archive-months">${monthHTML}</div>`;
+
+    archivedSection.querySelectorAll("[data-patient-id]").forEach(button => {
+      button.addEventListener("click", () => openPatient(button.dataset.patientId));
+    });
+    archivedSection.querySelectorAll("[data-delete-patient-id]").forEach(button => {
+      button.addEventListener("click", () => deleteArchivedPatient(button.dataset.deletePatientId));
+    });
+  }
+
+  async function deleteArchivedPatient(id) {
+    const patient = getPatient(id);
+    if (!patient || patient.status !== "archived") return;
+    const description = `Leito ${patient.bed} — internação ${fmtDate(patient.admissionDate)} — alta ${fmtDate(patient.dischargedAt)}`;
+    if (!confirm(`Excluir definitivamente este registro?\n\n${description}\n\nEsta ação não poderá ser desfeita.`)) return;
+    state.patients = state.patients.filter(item => item.id !== patient.id);
+    await persist();
+    renderHome();
+    if (currentPatientId === patient.id) {
+      currentPatientId = null;
+      showScreen("home");
+    }
+    showToast("Registro excluído definitivamente.");
   }
 
   function createPatient(bed) {
@@ -499,7 +829,7 @@
   }
 
   function backup() {
-    const payload = { app: "Minha Enfermaria", version: 1, exportedAt: new Date().toISOString(), state };
+    const payload = makeBackupPayload();
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -585,6 +915,9 @@
     $("#reactivateButton").addEventListener("click", () => { const patient = getPatient(currentPatientId); if (patient) reactivatePatient(patient); });
     $("#addPatientPendingButton").addEventListener("click", () => { const patient = getPatient(currentPatientId); if (patient) addLongPending(patient); });
     $("#backupButton").addEventListener("click", backup);
+    $("#configureExternalBackupButton").addEventListener("click", manageExternalBackup);
+    $("#changeExternalBackupButton").addEventListener("click", changeExternalBackupFile);
+    $("#protectStorageButton").addEventListener("click", protectLocalStorage);
     $("#restoreButton").addEventListener("click", () => $("#restoreInput").click());
     $("#restoreInput").addEventListener("change", event => restore(event.target.files?.[0]));
   }
@@ -594,14 +927,17 @@
       db = await openDatabase();
       const saved = await readState();
       if (saved && Array.isArray(saved.beds) && Array.isArray(saved.patients)) state = saved;
-      else await persist();
+      await loadExternalBackupHandle();
+      await refreshStorageProtection(true);
+      if (!saved) await persist();
       bindEvents();
       addSaveButton();
       installAntibioticQuickAdd();
+      updateExternalBackupUI();
       renderHome();
       showScreen("home");
       if (location.protocol === "file:") {
-        $("#storageNotice").textContent = "Arquivo local: a persistência depende do navegador. Para uso contínuo, instale como PWA em HTTPS e teste o backup.";
+        $("#storageNotice").textContent = "Arquivo local: armazenamento e acesso a arquivos dependem do navegador. Use o site HTTPS instalado como PWA.";
       }
     } catch (error) {
       $("#managerHome").innerHTML = `<div class="manager-warning"><strong>Armazenamento local indisponível.</strong><p>${escapeHTML(error.message)}</p><p>Não utilize o aplicativo para registrar dados enquanto o armazenamento persistente não estiver funcionando.</p></div>`;
