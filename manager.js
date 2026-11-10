@@ -413,21 +413,33 @@
   }
 
   function addSaveButton() {
-    const header = $(".result-header");
-    if (!header || $("#saveToPatientButton")) return;
+    // There are two .result-header elements: one in the patient history and
+    // another in the generator. Target the generator explicitly so the action
+    // is visible next to the generated text's Copy button.
+    const header = $("#generatorScreen .result-section .result-header");
+    const originalCopy = $("#copyButton");
+    if (!header || !originalCopy || $("#saveToPatientButton")) return;
+
+    // Keep both result actions grouped without changing the original form HTML.
+    const actions = document.createElement("div");
+    actions.className = "result-actions";
+    originalCopy.parentNode.insertBefore(actions, originalCopy);
+    actions.append(originalCopy);
+
     const button = document.createElement("button");
     button.id = "saveToPatientButton";
-    button.className = "secondary";
+    button.className = "primary";
     button.type = "button";
     button.textContent = "Salvar em...";
     button.disabled = true;
     button.addEventListener("click", saveOutput);
-    header.append(button);
-    $("#output").addEventListener("input", () => { button.disabled = !$("#output").value.trim(); });
-    const originalCopy = $("#copyButton");
+    actions.append(button);
+
+    const syncButton = () => { button.disabled = !$("#output").value.trim(); };
+    $("#output").addEventListener("input", syncButton);
     $("#clearButton").addEventListener("click", () => { button.disabled = true; });
-    originalCopy.addEventListener("click", () => { button.disabled = !$("#output").value.trim(); });
-    $("#noteForm").addEventListener("submit", () => { setTimeout(() => { button.disabled = !$("#output").value.trim(); }, 0); });
+    originalCopy.addEventListener("click", syncButton);
+    $("#noteForm").addEventListener("submit", () => { setTimeout(syncButton, 0); });
   }
 
   function formPendingTexts() {
