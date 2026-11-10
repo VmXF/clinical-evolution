@@ -32,11 +32,23 @@
         <div id="bedGrid" class="bed-grid"></div>
         <div class="home-actions">
           <button id="openGeneratorButton" class="primary" type="button">Abrir gerador de evolução</button>
-          <button id="backupButton" class="secondary" type="button">Exportar backup</button>
+          <button id="backupButton" class="secondary" type="button">Exportar backup manual</button>
           <button id="restoreButton" class="secondary" type="button">Restaurar backup</button>
           <input id="restoreInput" type="file" accept="application/json,.json" hidden>
         </div>
-        <p id="storageNotice" class="hint">Armazenamento local do navegador. Faça backups periódicos.</p>
+        <section class="backup-panel" aria-label="Proteção e backup dos dados">
+          <h3>Backup externo automático</h3>
+          <p class="hint">Escolha um arquivo JSON em uma pasta do celular. O aplicativo atualizará esse arquivo após cada alteração enquanto a permissão estiver ativa. Ao reabrir o PWA, o Chrome pode exigir nova autorização pelo botão abaixo.</p>
+          <div class="backup-actions">
+            <button id="configureExternalBackupButton" class="primary" type="button">Configurar backup automático</button>
+            <button id="changeExternalBackupButton" class="secondary" type="button" hidden>Alterar arquivo</button>
+          </div>
+          <p id="externalBackupNotice" class="backup-status" data-status="off">Nenhum arquivo externo configurado.</p>
+          <div class="backup-local-protection">
+            <p id="storageNotice" class="backup-status" data-status="pending">Verificando proteção do armazenamento local…</p>
+            <button id="protectStorageButton" class="small secondary" type="button" hidden>Tentar proteger armazenamento local</button>
+          </div>
+        </section>
         <div id="archivedPatients" class="archived-section" hidden></div>
       </div>
 
