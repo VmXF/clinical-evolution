@@ -70,8 +70,10 @@
 .antibiotic-quick-add label{font-size:.84rem}
 .antibiotic-quick-add select,.antibiotic-quick-add input{font:inherit;color:var(--ink);background:#fff;border:1px solid #aabfbd;border-radius:6px;padding:9px;min-width:0;width:100%}
 .antibiotic-quick-add button{justify-self:start}
-#saveToPatientButton{margin-left:8px}
+.result-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.result-actions button{white-space:nowrap}
 #saveToPatientButton:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:480px){#generatorScreen .result-header{align-items:flex-start;flex-wrap:wrap}.result-actions{width:100%}.result-actions button{flex:1}}
 #generatorScreen[hidden],#managerHome[hidden],#patientScreen[hidden]{display:none!important}
 @media(max-width:640px){.bed-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.bed-open{min-height:124px;padding:12px 30px 12px 11px}.manager-stats{gap:8px}.patient-head,.evolution-section,.pending-section{padding:13px}.patient-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.patient-actions button{width:100%}.archived-item{align-items:flex-start;flex-direction:column;gap:4px}.abx-quick-grid{grid-template-columns:1fr}.generator-nav{align-items:flex-start}.generator-context{max-width:52%}.manager-modal{padding:15px}}
 .pending-collapsible{padding:0;overflow:hidden}
