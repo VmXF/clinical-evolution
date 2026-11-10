@@ -83,3 +83,42 @@
 .pending-collapsible[open]>summary::after{content:"−"}
 .pending-count{font-size:.78rem;color:var(--muted);font-weight:500;margin-left:auto}
 .pending-collapsible .pending-section-head,.pending-collapsible #patientPendingList{padding:0 16px 14px}
+
+/* Pasta de altas: agrupamento cronológico por ano/mês e data da alta. */
+.archive-folder-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 10px}
+.archive-folder-heading h2{margin:0}
+.archive-folder-heading>span{font-size:.8rem;color:var(--muted)}
+.archive-months{display:grid;gap:9px}
+.archive-month{background:#fff;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.archive-month>summary{list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 15px;cursor:pointer;font-weight:750}
+.archive-month>summary::-webkit-details-marker{display:none}
+.archive-month>summary::after{content:"+";font-size:1.1rem;color:var(--muted);order:3}
+.archive-month[open]>summary::after{content:"−"}
+.archive-month>summary small{font-weight:500;color:var(--muted);margin-left:auto}
+.archive-month-content{padding:0 13px 12px}
+.archive-day{padding-top:9px}
+.archive-day h3{font-size:.86rem;margin:4px 0 7px;color:var(--brand-dark)}
+.archive-day-list{display:grid;gap:6px}
+.archive-entry{display:flex;align-items:stretch;gap:8px;border:1px solid var(--line);border-radius:7px;background:#fbfdfd;overflow:hidden}
+.archive-open{display:flex;flex:1;min-width:0;flex-direction:column;align-items:flex-start;gap:3px;padding:10px 11px;border:0;background:transparent;text-align:left;color:var(--ink);font:inherit;cursor:pointer}
+.archive-open:hover{background:#f3f8f7}
+.archive-entry-title{font-size:.88rem;font-weight:700;overflow-wrap:anywhere}
+.archive-open small{font-size:.76rem;color:var(--muted)}
+.archive-delete{align-self:center;margin-right:7px;padding:6px 8px;border:1px solid #e6c5c1;border-radius:6px;background:#fff;color:#8a3124;font:inherit;font-size:.75rem;cursor:pointer}
+.archive-delete:hover{background:#fbefed}
+@media(max-width:480px){.archive-month-content{padding:0 9px 10px}.archive-entry{gap:4px}.archive-delete{margin-right:5px;padding:6px;font-size:.72rem}}
+
+/* Proteção do armazenamento e cópia automática em arquivo escolhido pelo usuário. */
+.backup-panel{margin:4px 0 22px;padding:15px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.backup-panel h3{margin:0 0 5px;font-size:1rem}
+.backup-panel>.hint{margin:0 0 11px}
+.backup-actions{display:flex;flex-wrap:wrap;gap:8px}
+.backup-actions button{flex:1 1 190px}
+.backup-status{margin:10px 0 0;padding:9px 11px;border-radius:7px;background:#f3f6f6;color:var(--muted);font-size:.8rem;line-height:1.4;overflow-wrap:anywhere}
+.backup-status[data-status="ok"]{background:#eaf3ed;color:#315d43}
+.backup-status[data-status="warn"]{background:#fff4e6;color:#875b22}
+.backup-status[data-status="off"]{background:#f3f6f6;color:var(--muted)}
+.backup-local-protection{margin-top:8px}
+.backup-local-protection .backup-status{margin-top:0}
+.backup-local-protection button{margin-top:8px}
+@media(max-width:480px){.backup-panel{padding:12px}.backup-actions{display:grid}.backup-actions button{width:100%}}
