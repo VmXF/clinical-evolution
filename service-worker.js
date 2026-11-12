@@ -1,4 +1,4 @@
-const CACHE = "evolucao-clinica-offline-v10";
+const CACHE = "evolucao-clinica-offline-v11";
 const APP_SHELL = ["./", "./index.html", "./styles.css", "./manager.css", "./app.js", "./manager.js", "./manifest.webmanifest", "./icon.svg"];
 self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())));
 self.addEventListener("activate", event => event.waitUntil(
