@@ -122,3 +122,14 @@
 .backup-local-protection .backup-status{margin-top:0}
 .backup-local-protection button{margin-top:8px}
 @media(max-width:480px){.backup-panel{padding:12px}.backup-actions{display:grid}.backup-actions button{width:100%}}
+
+.antibiotic-section{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;margin:14px 0;box-shadow:0 1px 2px #1733340a}
+.antibiotic-list{display:grid;gap:10px;margin-top:12px}
+.antibiotic-list h3{font-size:.9rem;margin:8px 0 0;color:var(--muted)}
+.antibiotic-item{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px;border:1px solid var(--line);border-radius:8px;background:#fbfdfd}
+.antibiotic-item p{font-size:.82rem;color:var(--muted);margin:4px 0 0}
+.antibiotic-actions{display:flex;gap:6px;flex-wrap:wrap}
+.abx-status{font-size:.8rem;color:var(--muted);font-weight:700}
+.antibiotic-history{border-top:1px solid var(--line);padding-top:10px;margin-top:8px}
+.antibiotic-history summary{cursor:pointer;font-weight:700;font-size:.88rem}
+@media(max-width:640px){.antibiotic-item{align-items:flex-start;flex-direction:column}.antibiotic-actions{width:100%}.antibiotic-actions button{flex:1}}
