@@ -565,6 +565,7 @@
     $("#patientLabel").textContent = patient.label || "Paciente";
     $("#patientMeta").textContent = `Internação em ${fmtDate(patient.admissionDate)} · ${todayDay && todayDay > 0 ? `D${todayDay}` : "Conferir data de internação"}`;
     $("#patientStatus").textContent = patient.status === "archived" ? `Alta em ${fmtDate(patient.dischargedAt)}` : "Internado";
+    renderAntibiotics(patient);
     $("#dischargeButton").hidden = patient.status === "archived";
     $("#reactivateButton").hidden = patient.status !== "archived";
 
@@ -733,8 +734,6 @@
     clearGenerator();
     const patient = patientId ? getPatient(patientId) : null;
     if (patient) {
-      const field = document.querySelector('#noteForm [name="diaInternacao"]');
-      if (field) field.value = toShortDate(patient.admissionDate);
     }
     const antibioticDate = $("#abxStartDate");
     if (antibioticDate) antibioticDate.value = localISO();
@@ -870,29 +869,67 @@
     reader.readAsText(file);
   }
 
-  function installAntibioticQuickAdd() {
-    const textarea = document.querySelector('#noteForm [name="antibioticoterapia"]');
-    if (!textarea || $("#antibioticQuickAdd")) return;
-    const helper = document.createElement("div");
-    helper.id = "antibioticQuickAdd";
-    helper.className = "antibiotic-quick-add";
-    helper.innerHTML = `
-      <div class="abx-quick-grid">
-        <label>Selecionar antibiótico<select id="abxSelect"><option value="">Selecione...</option>${ANTIBIOTICS.map(item => `<option value="${escapeHTML(item)}">${escapeHTML(item)}</option>`).join("")}</select></label>
-        <label>Data de início<input id="abxStartDate" type="date" value="${localISO()}"></label>
-      </div>
-      <button id="addAntibioticToText" class="small secondary" type="button">Adicionar ao texto de antibioticoterapia</button>`;
-    textarea.closest("label").insertAdjacentElement("afterend", helper);
-    $("#addAntibioticToText").addEventListener("click", () => {
-      const name = $("#abxSelect").value;
-      const date = $("#abxStartDate").value;
-      if (!name) return showToast("Selecione um antibiótico.");
-      if (!parseISO(date)) return showToast("Informe a data de início.");
-      const line = `${name} (início: ${fmtDate(date)})`;
-      textarea.value = [textarea.value.trim(), line].filter(Boolean).join("\n");
-      textarea.dispatchEvent(new Event("input", { bubbles: true }));
-      $("#abxSelect").value = "";
-      showToast(`${name} adicionado ao campo.`);
+  function renderAntibiotics(patient) {
+    if (!Array.isArray(patient.antibiotics)) patient.antibiotics = [];
+    const list = $("#patientAntibioticList");
+    if (!list) return;
+    const active = patient.antibiotics.filter(item => item.status === "active");
+    const history = patient.antibiotics.filter(item => item.status !== "active");
+    const card = item => `<div class="antibiotic-item">
+      <div><strong>${escapeHTML(item.name)}</strong><p>${item.status === "active" ? `Em uso · iniciado em ${fmtDate(item.startDate)}` : `${item.status === "suspended" ? "Suspenso" : "Finalizado"} em ${fmtDate(item.endDate)} · início ${fmtDate(item.startDate)}`}</p></div>
+      ${item.status === "active" ? `<div class="antibiotic-actions"><button class="small secondary" type="button" data-abx-end="${escapeHTML(item.id)}" data-status="completed">Finalizar</button><button class="small secondary" type="button" data-abx-end="${escapeHTML(item.id)}" data-status="suspended">Suspender</button></div>` : `<span class="abx-status">${item.status === "suspended" ? "Suspenso" : "Finalizado"}</span>`}
+    </div>`;
+    list.innerHTML = active.length || history.length
+      ? `${active.length ? `<h3>Em uso</h3>${active.map(card).join("")}` : `<p class="muted-empty">Nenhum antibiótico em uso.</p>`}
+         ${history.length ? `<details class="antibiotic-history"><summary>Histórico (${history.length})</summary>${[...history].sort((a,b)=>(b.endDate||"").localeCompare(a.endDate||"")).map(card).join("")}</details>` : ""}`
+      : `<p class="muted-empty">Nenhuma antibioticoterapia registrada.</p>`;
+    list.querySelectorAll("[data-abx-end]").forEach(button => button.addEventListener("click", () => endAntibiotic(patient, button.dataset.abxEnd, button.dataset.status)));
+  }
+
+  function addPatientAntibiotic(patient) {
+    showModal("Adicionar antibioticoterapia", `
+      <label>Antibiótico padronizado<select name="standard"><option value="">Selecione...</option>${ANTIBIOTICS.map(item => `<option value="${escapeHTML(item)}">${escapeHTML(item)}</option>`).join("")}</select></label>
+      <label>Ou antibiótico não padronizado<input name="custom" maxlength="100" placeholder="Digite o nome, se não estiver na lista"></label>
+      <label>Data de início<input name="startDate" type="date" value="${localISO()}" required></label>
+      <p class="form-hint">Se preencher o campo não padronizado, ele terá prioridade sobre a seleção acima.</p>`, async data => {
+      const name = String(data.get("custom") || "").trim() || String(data.get("standard") || "").trim();
+      const startDate = String(data.get("startDate") || "");
+      if (!name) throw new Error("Selecione ou informe o antibiótico.");
+      if (!parseISO(startDate)) throw new Error("Informe uma data de início válida.");
+      if (!Array.isArray(patient.antibiotics)) patient.antibiotics = [];
+      patient.antibiotics.push({ id: uid(), name, startDate, endDate: null, status: "active", createdAt: new Date().toISOString() });
+      patient.updatedAt = new Date().toISOString();
+      await persist(); closeModal(); renderPatient(patient); renderHome();
+      showToast(`${name} registrado.`);
+    });
+  }
+
+  async function endAntibiotic(patient, id, status) {
+    const item = (patient.antibiotics || []).find(entry => entry.id === id);
+    if (!item || item.status !== "active") return;
+    const label = status === "suspended" ? "suspenso" : "finalizado";
+    if (!confirm(`Confirmar ${label} ${item.name}? A data de hoje será registrada na evolução.`)) return;
+    const today = localISO();
+    item.status = status;
+    item.endDate = today;
+    item.updatedAt = new Date().toISOString();
+    const now = new Date().toISOString();
+    patient.evolutions.push({
+      id: uid(), date: today,
+      text: `${fmtDate(today)} — ${item.name} ${label}. Iniciado em ${fmtDate(item.startDate)}.`,
+      createdAt: now, updatedAt: now, generatedBy: "antibiotic-status"
+    });
+    patient.updatedAt = now;
+    await persist();
+    renderPatient(patient); renderHome();
+    showToast(`${item.name}: ${label} e registrado na evolução.`);
+  }
+
+  function bindAntibioticControls() {
+    $("#addPatientAntibioticButton")?.addEventListener("click", () => {
+      const patient = getPatient(currentPatientId);
+      if (patient?.status === "active") addPatientAntibiotic(patient);
+      else showToast("Antibioticoterapia só pode ser alterada em internação ativa.");
     });
   }
 
@@ -914,6 +951,7 @@
     $("#dischargeButton").addEventListener("click", () => { const patient = getPatient(currentPatientId); if (patient) dischargePatient(patient); });
     $("#reactivateButton").addEventListener("click", () => { const patient = getPatient(currentPatientId); if (patient) reactivatePatient(patient); });
     $("#addPatientPendingButton").addEventListener("click", () => { const patient = getPatient(currentPatientId); if (patient) addLongPending(patient); });
+    bindAntibioticControls();
     $("#backupButton").addEventListener("click", backup);
     $("#configureExternalBackupButton").addEventListener("click", manageExternalBackup);
     $("#changeExternalBackupButton").addEventListener("click", changeExternalBackupFile);
