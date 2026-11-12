@@ -22,8 +22,9 @@ Abra a aplicação instalada, desligue a conexão do dispositivo, reabra-a e ger
 - Cada evolução é salva como registro independente, com data editável. O DIH é calculado pela data de internação e pela data da evolução, sem depender de haver visita em todos os dias.
 - A data de internação pode ser corrigida na tela do paciente; os DIH históricos são recalculados sem alterar o texto nem a data das evoluções.
 - Pendências são mantidas separadamente, com conclusão e data, e também podem ser capturadas do campo Pendências do gerador ao salvar uma evolução.
-- A página individual contém apenas o histórico de evoluções e as pendências longitudinais; não apresenta resumo basal, exames ou antibioticoterapia como painéis separados.
-- O formulário original e sua função de geração permanecem preservados. O atalho de antibióticos apenas insere medicamento e data de início no campo de texto Antibioticoterapia já existente.
+- A página individual apresenta histórico de evoluções, pendências longitudinais e painel persistente de antibioticoterapia.
+- A antibioticoterapia é cadastrada por paciente, com seletor institucional, opção de nome livre e data de início. ATBs podem ser finalizados ou suspensos; a ação registra a data atual, mantém o histórico e cria automaticamente uma evolução datada.
+- A data de internação permanece no cadastro do paciente e é usada para calcular o DIH; não é repetida no formulário de evolução.
 - Os registros ficam no IndexedDB do navegador neste dispositivo. Exporte backups JSON regularmente. A restauração substitui os dados locais atuais.
 
 O uso como PWA requer servir os arquivos em HTTPS ou localhost. Após abrir/instalar e armazenar o app shell, a interface pode ser carregada offline. O armazenamento local não é sincronizado nem criptografado automaticamente.
