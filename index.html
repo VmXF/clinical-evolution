@@ -64,6 +64,10 @@
             <button id="newEvolutionButton" class="primary" type="button">+ Nova evolução</button>
           </div>
         </div>
+        <section class="antibiotic-section">
+          <div class="result-header"><h2>Antibioticoterapia</h2><button id="addPatientAntibioticButton" class="small secondary" type="button">+ Adicionar ATB</button></div>
+          <div id="patientAntibioticList" class="antibiotic-list"></div>
+        </section>
         <section class="evolution-section">
           <div class="result-header"><h2>Evoluções</h2><span class="hint">Toque para abrir e editar</span></div>
           <div id="evolutionList" class="evolution-list"></div>
@@ -82,13 +86,11 @@
         <section>
           <h2>1. Identificação e contexto</h2>
           <div class="grid two">
-            <label># Dia de internação<input name="diaInternacao" inputmode="numeric" maxlength="8" placeholder="DD/MM/AA" pattern="\d{2}/\d{2}/\d{2}"></label>
             <label># Diagnósticos<textarea name="diagnosticos" rows="2" placeholder="Um ou mais diagnósticos"></textarea></label>
             <label># Alergias<input name="alergias" placeholder="Descrever, se houver"></label>
             <label># HPP<textarea name="hpp" rows="2" placeholder="História patológica pregressa"></textarea></label>
           </div>
           <label># Medicações de uso contínuo<textarea name="medicacoesUso" rows="2"></textarea></label>
-          <label>Antibioticoterapia<textarea name="antibioticoterapia" rows="2" placeholder="Ex.: Vancomicina D0 em 13/10/26"></textarea></label>
           <label>HDA<textarea name="hda" class="large" rows="6" placeholder="História e evolução desde a admissão"></textarea></label>
         </section>
 
