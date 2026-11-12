@@ -970,7 +970,6 @@
       if (!saved) await persist();
       bindEvents();
       addSaveButton();
-      installAntibioticQuickAdd();
       updateExternalBackupUI();
       renderHome();
       showScreen("home");
