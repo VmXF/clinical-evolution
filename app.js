@@ -80,7 +80,7 @@ function formatAdmissionDate(event) {
 }
 
 function generateNote() {
-  const header = [textLine("# Dia de internação", "diaInternacao"), bulletList("# Diagnóstico(s)", "diagnosticos"), textLine("# Alergias", "alergias"), textLine("# HPP", "hpp"), textLine("# Medicações de uso contínuo", "medicacoesUso"), value("antibioticoterapia") ? `Antibioticoterapia:\n${value("antibioticoterapia")}` : "", value("hda") ? `HDA:\n${value("hda")}` : ""].filter(Boolean).join("\n");
+  const header = [bulletList("# Diagnóstico(s)", "diagnosticos"), textLine("# Alergias", "alergias"), textLine("# HPP", "hpp"), textLine("# Medicações de uso contínuo", "medicacoesUso"), value("antibioticoterapia") ? `Antibioticoterapia:\n${value("antibioticoterapia")}` : "", value("hda") ? `HDA:\n${value("hda")}` : ""].filter(Boolean).join("\n");
   const vitals = [rangeLine("PAS", "mmHg", "pasMax", "pasMin"), rangeLine("PAD", "mmHg", "padMax", "padMin"), rangeLine("FC", "bpm", "fcMax", "fcMin"), rangeLine("SpO₂", "%", "spo2Max", "spo2Min"), rangeLine("Temp", "°C", "tempMax", "tempMin")];
   const last24 = section("ÚLTIMAS 24 HORAS", [...vitals, textLine("Débito urinário", "debitoUrinario"), textLine("Drenos", "drenos"), textLine("Outros débitos", "outrosDebitos"), textLine("Intercorrências", "intercorrencias"), textLine("Queixas / evolução subjetiva", "subjetivo")]);
   const grouped = {};
@@ -98,7 +98,6 @@ function generateNote() {
 renderExamOptions();
 renderLabFields();
 addPending();
-form.elements.diaInternacao.addEventListener("input", formatAdmissionDate);
 document.querySelector("#addPending").addEventListener("click", () => addPending());
 form.addEventListener("submit", event => { event.preventDefault(); generateNote(); output.scrollIntoView({ behavior: "smooth", block: "start" }); });
 document.querySelector("#clearButton").addEventListener("click", () => { form.reset(); pendingItems.replaceChildren(); addPending(); output.value = ""; document.querySelector("#copyButton").disabled = true; });
