@@ -459,7 +459,6 @@
     $("#addBedButton").disabled = false;
   }
 
-
   function monthFolderLabel(isoMonth) {
     const [year, month] = isoMonth.split("-").map(Number);
     const names = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -571,6 +570,7 @@
 
     const evolutionList = $("#evolutionList");
     const evolutions = [...patient.evolutions].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+    $("#evolutionCount").textContent = `${evolutions.length} ${evolutions.length === 1 ? "registro" : "registros"}`;
     evolutionList.innerHTML = evolutions.length ? evolutions.map(evolution => {
       const d = dayNumber(patient.admissionDate, evolution.date);
       const preview = String(evolution.text || "").replace(/\s+/g, " ").trim().slice(0, 170);
@@ -624,6 +624,10 @@
     const patient = getPatient(id);
     if (!patient) return;
     currentPatientId = patient.id;
+    ["#antibioticSection", "#evolutionSection", ".pending-collapsible"].forEach(selector => {
+      const section = $(selector);
+      if (section) section.open = false;
+    });
     renderPatient(patient);
     showScreen("patient");
   }
@@ -872,18 +876,70 @@
   function renderAntibiotics(patient) {
     if (!Array.isArray(patient.antibiotics)) patient.antibiotics = [];
     const list = $("#patientAntibioticList");
-    if (!list) return;
+    const summary = $("#antibioticSummary");
+    if (!list || !summary) return;
+
     const active = patient.antibiotics.filter(item => item.status === "active");
     const history = patient.antibiotics.filter(item => item.status !== "active");
-    const card = item => `<div class="antibiotic-item">
-      <div><strong>${escapeHTML(item.name)}</strong><p>${item.status === "active" ? `Em uso · iniciado em ${fmtDate(item.startDate)}` : `${item.status === "suspended" ? "Suspenso" : "Finalizado"} em ${fmtDate(item.endDate)} · início ${fmtDate(item.startDate)}`}</p></div>
-      ${item.status === "active" ? `<div class="antibiotic-actions"><button class="small secondary" type="button" data-abx-end="${escapeHTML(item.id)}" data-status="completed">Finalizar</button><button class="small secondary" type="button" data-abx-end="${escapeHTML(item.id)}" data-status="suspended">Suspender</button></div>` : `<span class="abx-status">${item.status === "suspended" ? "Suspenso" : "Finalizado"}</span>`}
-    </div>`;
+
+    const treatmentDay = item => {
+      const day = dayNumber(item.startDate);
+      return day && day > 0 ? `D${day}` : `início em ${fmtDate(item.startDate)}`;
+    };
+
+    const activeSummary = active.map(item =>
+      `${item.name} — Em uso · iniciado em ${fmtDate(item.startDate)} · ${treatmentDay(item)}`
+    );
+
+    summary.textContent = activeSummary.length
+      ? activeSummary.join(" | ")
+      : "Nenhum antibiótico em uso";
+    summary.title = summary.textContent;
+
+    const card = item => `
+      <div class="antibiotic-item">
+        <div>
+          <strong>${escapeHTML(item.name)}</strong>
+          <p>
+            ${item.status === "active"
+              ? `Em uso · iniciado em ${fmtDate(item.startDate)} · ${treatmentDay(item)}`
+              : `${item.status === "suspended" ? "Suspenso" : "Finalizado"} em ${fmtDate(item.endDate)} · iniciado em ${fmtDate(item.startDate)}`
+            }
+          </p>
+        </div>
+        ${item.status === "active"
+          ? `<div class="antibiotic-actions">
+              <button class="small secondary" type="button" data-abx-end="${escapeHTML(item.id)}" data-status="completed">Finalizar</button>
+              <button class="small secondary" type="button" data-abx-end="${escapeHTML(item.id)}" data-status="suspended">Suspender</button>
+            </div>`
+          : `<span class="abx-status">${item.status === "suspended" ? "Suspenso" : "Finalizado"}</span>`
+        }
+      </div>
+    `;
+
     list.innerHTML = active.length || history.length
-      ? `${active.length ? `<h3>Em uso</h3>${active.map(card).join("")}` : `<p class="muted-empty">Nenhum antibiótico em uso.</p>`}
-         ${history.length ? `<details class="antibiotic-history"><summary>Histórico (${history.length})</summary>${[...history].sort((a,b)=>(b.endDate||"").localeCompare(a.endDate||"")).map(card).join("")}</details>` : ""}`
+      ? `
+        ${active.length
+          ? active.map(card).join("")
+          : `<p class="muted-empty">Nenhum antibiótico em uso.</p>`
+        }
+        ${history.length
+          ? `<details class="antibiotic-history">
+              <summary>Histórico (${history.length})</summary>
+              ${[...history]
+                .sort((a, b) => (b.endDate || "").localeCompare(a.endDate || ""))
+                .map(card).join("")}
+            </details>`
+          : ""
+        }
+      `
       : `<p class="muted-empty">Nenhuma antibioticoterapia registrada.</p>`;
-    list.querySelectorAll("[data-abx-end]").forEach(button => button.addEventListener("click", () => endAntibiotic(patient, button.dataset.abxEnd, button.dataset.status)));
+
+    list.querySelectorAll("[data-abx-end]").forEach(button => {
+      button.addEventListener("click", () =>
+        endAntibiotic(patient, button.dataset.abxEnd, button.dataset.status)
+      );
+    });
   }
 
   function addPatientAntibiotic(patient) {
@@ -899,7 +955,10 @@
       if (!Array.isArray(patient.antibiotics)) patient.antibiotics = [];
       patient.antibiotics.push({ id: uid(), name, startDate, endDate: null, status: "active", createdAt: new Date().toISOString() });
       patient.updatedAt = new Date().toISOString();
-      await persist(); closeModal(); renderPatient(patient); renderHome();
+      await persist();
+      closeModal();
+      renderPatient(patient);
+      renderHome();
       showToast(`${name} registrado.`);
     });
   }
@@ -907,22 +966,20 @@
   async function endAntibiotic(patient, id, status) {
     const item = (patient.antibiotics || []).find(entry => entry.id === id);
     if (!item || item.status !== "active") return;
+
     const label = status === "suspended" ? "suspenso" : "finalizado";
-    if (!confirm(`Confirmar ${label} ${item.name}? A data de hoje será registrada na evolução.`)) return;
+    if (!confirm(`Confirmar ${label} ${item.name}? A data de hoje será registrada no histórico de antibioticoterapia.`)) return;
+
     const today = localISO();
     item.status = status;
     item.endDate = today;
     item.updatedAt = new Date().toISOString();
-    const now = new Date().toISOString();
-    patient.evolutions.push({
-      id: uid(), date: today,
-      text: `${fmtDate(today)} — ${item.name} ${label}. Iniciado em ${fmtDate(item.startDate)}.`,
-      createdAt: now, updatedAt: now, generatedBy: "antibiotic-status"
-    });
-    patient.updatedAt = now;
+    patient.updatedAt = item.updatedAt;
+
     await persist();
-    renderPatient(patient); renderHome();
-    showToast(`${item.name}: ${label} e registrado na evolução.`);
+    renderPatient(patient);
+    renderHome();
+    showToast(`${item.name}: ${label} e registrado no histórico.`);
   }
 
   function bindAntibioticControls() {
@@ -939,19 +996,41 @@
     $("#generatorBackButton").addEventListener("click", () => {
       const patient = getPatient(currentPatientId);
       if (patient) openPatient(patient.id);
-      else { currentPatientId = null; renderHome(); showScreen("home"); }
+      else {
+        currentPatientId = null;
+        renderHome();
+        showScreen("home");
+      }
     });
-    $("#patientBackButton").addEventListener("click", () => { currentPatientId = null; renderHome(); showScreen("home"); });
+    $("#patientBackButton").addEventListener("click", () => {
+      currentPatientId = null;
+      renderHome();
+      showScreen("home");
+    });
     $("#newEvolutionButton").addEventListener("click", () => {
       const patient = getPatient(currentPatientId);
       if (patient?.status === "active") openGenerator(patient.id);
       else showToast("Este paciente está arquivado. Reative-o para registrar uma nova evolução.");
     });
-    $("#editPatientButton").addEventListener("click", () => { const patient = getPatient(currentPatientId); if (patient) editPatient(patient); });
-    $("#dischargeButton").addEventListener("click", () => { const patient = getPatient(currentPatientId); if (patient) dischargePatient(patient); });
-    $("#reactivateButton").addEventListener("click", () => { const patient = getPatient(currentPatientId); if (patient) reactivatePatient(patient); });
-    $("#addPatientPendingButton").addEventListener("click", () => { const patient = getPatient(currentPatientId); if (patient) addLongPending(patient); });
+    $("#editPatientButton").addEventListener("click", () => {
+      const patient = getPatient(currentPatientId);
+      if (patient) editPatient(patient);
+    });
+    $("#dischargeButton").addEventListener("click", () => {
+      const patient = getPatient(currentPatientId);
+      if (patient) dischargePatient(patient);
+    });
+    $("#reactivateButton").addEventListener("click", () => {
+      const patient = getPatient(currentPatientId);
+      if (patient) reactivatePatient(patient);
+    });
+    $("#addPatientPendingButton").addEventListener("click", () => {
+      const patient = getPatient(currentPatientId);
+      if (patient) addLongPending(patient);
+    });
+
     bindAntibioticControls();
+
     $("#backupButton").addEventListener("click", backup);
     $("#configureExternalBackupButton").addEventListener("click", manageExternalBackup);
     $("#changeExternalBackupButton").addEventListener("click", changeExternalBackupFile);
