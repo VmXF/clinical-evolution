@@ -17,7 +17,10 @@ const labFields = [
 const form = document.querySelector("#noteForm");
 const output = document.querySelector("#output");
 const pendingItems = document.querySelector("#pendingItems");
-const value = name => form.elements[name].value.trim();
+const value = name => {
+  const field = form.elements.namedItem(name);
+  return field && typeof field.value === "string" ? field.value.trim() : "";
+};
 const textLine = (label, name) => value(name) ? `${label}: ${value(name)}` : "";
 
 function renderExamOptions() {
@@ -74,13 +77,8 @@ function bulletList(label, name) {
   return entries.length ? `${label}\n${entries.map(item => `- ${item.replace(/^-\s*/, "")}`).join("\n")}` : "";
 }
 
-function formatAdmissionDate(event) {
-  const digits = event.target.value.replace(/\D/g, "").slice(0, 6);
-  event.target.value = digits.replace(/(\d{2})(\d)/, "$1/$2").replace(/(\d{2}\/\d{2})(\d)/, "$1/$2");
-}
-
 function generateNote() {
-  const header = [bulletList("# Diagnóstico(s)", "diagnosticos"), textLine("# Alergias", "alergias"), textLine("# HPP", "hpp"), textLine("# Medicações de uso contínuo", "medicacoesUso"), value("antibioticoterapia") ? `Antibioticoterapia:\n${value("antibioticoterapia")}` : "", value("hda") ? `HDA:\n${value("hda")}` : ""].filter(Boolean).join("\n");
+  const header = [bulletList("# Diagnóstico(s)", "diagnosticos"), textLine("# Alergias", "alergias"), textLine("# HPP", "hpp"), textLine("# Medicações de uso contínuo", "medicacoesUso"), value("hda") ? `HDA:\n${value("hda")}` : ""].filter(Boolean).join("\n");
   const vitals = [rangeLine("PAS", "mmHg", "pasMax", "pasMin"), rangeLine("PAD", "mmHg", "padMax", "padMin"), rangeLine("FC", "bpm", "fcMax", "fcMin"), rangeLine("SpO₂", "%", "spo2Max", "spo2Min"), rangeLine("Temp", "°C", "tempMax", "tempMin")];
   const last24 = section("ÚLTIMAS 24 HORAS", [...vitals, textLine("Débito urinário", "debitoUrinario"), textLine("Drenos", "drenos"), textLine("Outros débitos", "outrosDebitos"), textLine("Intercorrências", "intercorrencias"), textLine("Queixas / evolução subjetiva", "subjetivo")]);
   const grouped = {};
@@ -92,15 +90,67 @@ function generateNote() {
   const pending = [...pendingItems.querySelectorAll(".pending-row")].map(row => row.querySelector('input[type="text"]').value.trim()).filter(Boolean);
   const pendingSection = section("PENDÊNCIAS", pending.map(item => `- [ ] ${item}`));
   output.value = [header, last24, exam, complementary, impression, pendingSection].filter(Boolean).join("\n\n");
-  document.querySelector("#copyButton").disabled = !output.value;
+  const hasOutput = Boolean(output.value.trim());
+  document.querySelector("#copyButton").disabled = !hasOutput;
+  document.querySelector("#downloadButton").disabled = !hasOutput;
+  return hasOutput;
+}
+
+function localDateStamp() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function downloadGeneratedNote() {
+  const text = output.value.trim();
+  if (!text) return false;
+
+  const context = document.querySelector("#generatorContext")?.textContent || "";
+  const bedMatch = context.match(/leito\s+([a-z0-9_-]+)/i);
+  const patientPart = bedMatch ? `Leito_${bedMatch[1]}` : "Sem_identificacao";
+  const filename = `Evolucao_${patientPart}_${localDateStamp()}.txt`;
+  const content = `\uFEFF${text.replace(/\r?\n/g, "\r\n")}\r\n`;
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.style.display = "none";
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+  return true;
 }
 
 renderExamOptions();
 renderLabFields();
 addPending();
 document.querySelector("#addPending").addEventListener("click", () => addPending());
-form.addEventListener("submit", event => { event.preventDefault(); generateNote(); output.scrollIntoView({ behavior: "smooth", block: "start" }); });
-document.querySelector("#clearButton").addEventListener("click", () => { form.reset(); pendingItems.replaceChildren(); addPending(); output.value = ""; document.querySelector("#copyButton").disabled = true; });
+form.addEventListener("submit", event => {
+  event.preventDefault();
+  const generated = generateNote();
+  if (!generated) {
+    window.alert("Preencha pelo menos um campo antes de gerar a evolução.");
+    return;
+  }
+  downloadGeneratedNote();
+  output.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+document.querySelector("#downloadButton").addEventListener("click", () => {
+  if (!downloadGeneratedNote()) return;
+});
+document.querySelector("#clearButton").addEventListener("click", () => {
+  form.reset();
+  pendingItems.replaceChildren();
+  addPending();
+  output.value = "";
+  document.querySelector("#copyButton").disabled = true;
+  document.querySelector("#downloadButton").disabled = true;
+});
 document.querySelector("#copyButton").addEventListener("click", async () => {
   try { await navigator.clipboard.writeText(output.value); }
   catch { output.focus(); output.select(); document.execCommand("copy"); }
