@@ -1,4 +1,5 @@
-const CACHE = "evolucao-clinica-offline-v14";
+
+const CACHE = "evolucao-clinica-offline-v15";
 
 const APP_SHELL = [
   "./",
