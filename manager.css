@@ -133,3 +133,29 @@
 .antibiotic-history{border-top:1px solid var(--line);padding-top:10px;margin-top:8px}
 .antibiotic-history summary{cursor:pointer;font-weight:700;font-size:.88rem}
 @media(max-width:640px){.antibiotic-item{align-items:flex-start;flex-direction:column}.antibiotic-actions{width:100%}.antibiotic-actions button{flex:1}}
+
+
+/* Painéis expansíveis da tela do paciente. */
+.collapsible-section{padding:0;background:#fff;border:1px solid var(--line);border-radius:10px;margin:14px 0;box-shadow:0 1px 2px #1733340a;overflow:hidden}
+.collapsible-section>summary{list-style:none;display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;font-weight:750;min-width:0}
+.collapsible-section>summary::-webkit-details-marker{display:none}
+.collapsible-section>summary::after{content:"+";flex:0 0 auto;color:var(--muted);font-size:1.15rem;font-weight:500}
+.collapsible-section[open]>summary::after{content:"−"}
+.collapsible-section[open]>summary{border-bottom:1px solid var(--line)}
+.collapsible-summary-title{flex:0 0 auto;color:var(--ink)}
+.collapsible-summary-meta{flex:1;min-width:0;text-align:right;color:var(--muted);font-size:.78rem;font-weight:450;line-height:1.35;overflow:hidden;text-overflow:ellipsis}
+.collapsible-content{padding:13px 16px 16px}
+.section-content-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.section-content-head h3{margin:0;font-size:.9rem;color:var(--muted)}
+.collapsible-hint{margin:0 0 10px}
+.collapsible-section .antibiotic-list{margin-top:0}
+.collapsible-section .evolution-list{margin-top:0}
+.pending-collapsible .pending-section-head{padding:0;margin:0 0 8px}
+.pending-collapsible #patientPendingList{padding:0}
+@media(max-width:640px){
+  .collapsible-section>summary{padding:13px 12px;gap:8px}
+  .collapsible-content{padding:11px 12px 13px}
+  .collapsible-summary-title{font-size:.9rem}
+  .collapsible-summary-meta{font-size:.72rem}
+  .section-content-head{align-items:flex-start}
+}
