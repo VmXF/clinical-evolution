@@ -64,113 +64,88 @@
             <button id="newEvolutionButton" class="primary" type="button">+ Nova evolução</button>
           </div>
         </div>
-
-        <details class="collapsible-section antibiotic-section" id="antibioticSection">
-          <summary>
-            <span class="collapsible-summary-title">Antibioticoterapia</span>
-            <span id="antibioticSummary" class="collapsible-summary-meta">Nenhum antibiótico em uso</span>
-          </summary>
-          <div class="collapsible-content">
-            <div class="section-content-head">
-              <h3>Em uso</h3>
-              <button id="addPatientAntibioticButton" class="small secondary" type="button">+ Adicionar ATB</button>
-            </div>
-            <div id="patientAntibioticList" class="antibiotic-list"></div>
-          </div>
-        </details>
-
-        <details class="collapsible-section evolution-section" id="evolutionSection">
-          <summary>
-            <span class="collapsible-summary-title">Evoluções</span>
-            <span id="evolutionCount" class="collapsible-summary-meta">0 registros</span>
-          </summary>
-          <div class="collapsible-content">
-            <p class="hint collapsible-hint">Toque em uma evolução para abrir e editar.</p>
-            <div id="evolutionList" class="evolution-list"></div>
-          </div>
-        </details>
-
-        <details class="collapsible-section pending-section pending-collapsible">
-          <summary>
-            <span class="collapsible-summary-title">Pendências</span>
-            <span id="pendingCount" class="collapsible-summary-meta">0 abertas</span>
-          </summary>
-          <div class="collapsible-content">
-            <div class="pending-section-head">
-              <button id="addPatientPendingButton" class="small secondary" type="button">+ Adicionar pendência</button>
-            </div>
-            <div id="patientPendingList"></div>
-          </div>
+        <section class="antibiotic-section">
+          <div class="result-header"><h2>Antibioticoterapia</h2><button id="addPatientAntibioticButton" class="small secondary" type="button">+ Adicionar ATB</button></div>
+          <div id="patientAntibioticList" class="antibiotic-list"></div>
+        </section>
+        <section class="evolution-section">
+          <div class="result-header"><h2>Evoluções</h2><span class="hint">Toque para abrir e editar</span></div>
+          <div id="evolutionList" class="evolution-list"></div>
+        </section>
+        <details class="pending-section pending-collapsible">
+          <summary><span>Pendências</span><span id="pendingCount" class="pending-count">0 abertas</span></summary>
+          <div class="pending-section-head"><button id="addPatientPendingButton" class="small secondary" type="button">+ Adicionar pendência</button></div>
+          <div id="patientPendingList"></div>
         </details>
       </div>
 
       <div id="generatorScreen" hidden>
         <div class="generator-nav"><button id="generatorBackButton" class="secondary small" type="button">‹ Voltar</button><span id="generatorContext" class="generator-context">Gerador de evolução</span></div>
         <aside class="privacy-note"><strong>Privacidade:</strong> os dados permanecem neste dispositivo e não são enviados pela aplicação. Feche ou limpe o formulário após copiar o texto.</aside>
-        <form id="noteForm" novalidate autocomplete="off">
-          <section>
-            <h2>1. Identificação e contexto</h2>
-            <div class="grid two">
-              <label># Diagnósticos<textarea name="diagnosticos" rows="2" placeholder="Um ou mais diagnósticos"></textarea></label>
-              <label># Alergias<input name="alergias" placeholder="Descrever, se houver"></label>
-              <label># HPP<textarea name="hpp" rows="2" placeholder="História patológica pregressa"></textarea></label>
-            </div>
-            <label># Medicações de uso contínuo<textarea name="medicacoesUso" rows="2"></textarea></label>
-            <label>HDA<textarea name="hda" class="large" rows="6" placeholder="História e evolução desde a admissão"></textarea></label>
-          </section>
-
-          <section>
-            <h2>2. Últimas 24 horas</h2>
-            <div class="vitals" aria-label="Sinais vitais nas últimas 24 horas">
-              <span class="vital-head">Parâmetro</span><span class="vital-head">Mínimo</span><span class="vital-head">Máximo</span>
-              <label class="vital-name" for="pasMin">PAS (mmHg)</label><input id="pasMin" name="pasMin" inputmode="decimal" aria-label="PAS mínima"><input name="pasMax" inputmode="decimal" aria-label="PAS máxima">
-              <label class="vital-name" for="padMin">PAD (mmHg)</label><input id="padMin" name="padMin" inputmode="decimal" aria-label="PAD mínima"><input name="padMax" inputmode="decimal" aria-label="PAD máxima">
-              <label class="vital-name" for="fcMin">FC (bpm)</label><input id="fcMin" name="fcMin" inputmode="decimal" aria-label="FC mínima"><input name="fcMax" inputmode="decimal" aria-label="FC máxima">
-              <label class="vital-name" for="spo2Min">SpO₂ (%)</label><input id="spo2Min" name="spo2Min" inputmode="decimal" aria-label="SpO2 mínima"><input name="spo2Max" inputmode="decimal" aria-label="SpO2 máxima">
-              <label class="vital-name" for="tempMin">Temperatura (°C)</label><input id="tempMin" name="tempMin" inputmode="decimal" aria-label="Temperatura mínima"><input name="tempMax" inputmode="decimal" aria-label="Temperatura máxima">
-            </div>
-            <div class="grid three">
-              <label>Débito urinário<textarea name="debitoUrinario" rows="2" placeholder="Ex.: 1.200 mL/24 h"></textarea></label>
-              <label>Drenos<textarea name="drenos" rows="2" placeholder="Identificação e volume"></textarea></label>
-              <label>Outros débitos<textarea name="outrosDebitos" rows="2"></textarea></label>
-            </div>
-            <label>Intercorrências<textarea name="intercorrencias" rows="3"></textarea></label>
-            <label>Queixas / evolução subjetiva<textarea name="subjetivo" rows="3"></textarea></label>
-          </section>
-
-          <section>
-            <h2>3. Exame físico</h2>
-            <p class="hint">Marque somente os achados que devem constar no texto.</p>
-            <div id="examGroups" class="exam-groups"></div>
-            <label class="glasgow">Glasgow (3–15)<input name="glasgow" type="number" min="3" max="15" inputmode="numeric"></label>
-          </section>
-
-          <section>
-            <h2>4. Exames complementares</h2>
-            <h3 class="subhead">Laboratoriais</h3>
-            <p class="hint">Digite apenas o resultado; o nome do exame é inserido automaticamente.</p>
-            <div id="labGrid" class="lab-grid"></div>
-            <label>Outros laboratoriais<input name="labOutros" placeholder="Ex.: Lactato 2,1 / TGO 40 / TGP 38"></label>
-            <label class="spaced">Exames de imagem<textarea name="imagem" rows="5" placeholder="Data e principais achados"></textarea></label>
-          </section>
-
-          <section>
-            <h2>5. Impressão e pendências</h2>
-            <label>Impressão<textarea name="impressao" class="large" rows="5"></textarea></label>
-            <div class="pending-header"><label>Pendências</label><button id="addPending" class="small secondary" type="button">+ Adicionar</button></div>
-            <div id="pendingItems" class="pending-items"></div>
-          </section>
-
-          <div class="actions">
-            <button class="primary" type="submit">Gerar evolução</button>
-            <button id="clearButton" class="secondary" type="button">Limpar formulário</button>
+      <form id="noteForm" novalidate autocomplete="off">
+        <section>
+          <h2>1. Identificação e contexto</h2>
+          <div class="grid two">
+            <label># Diagnósticos<textarea name="diagnosticos" rows="2" placeholder="Um ou mais diagnósticos"></textarea></label>
+            <label># Alergias<input name="alergias" placeholder="Descrever, se houver"></label>
+            <label># HPP<textarea name="hpp" rows="2" placeholder="História patológica pregressa"></textarea></label>
           </div>
-        </form>
-
-        <section class="result-section" aria-live="polite">
-          <div class="result-header"><h2>Texto para prontuário</h2><button id="copyButton" class="secondary" type="button" disabled>Copiar</button></div>
-          <textarea id="output" rows="18" readonly placeholder="Preencha apenas o necessário e selecione “Gerar evolução”."></textarea>
+          <label># Medicações de uso contínuo<textarea name="medicacoesUso" rows="2"></textarea></label>
+          <label>HDA<textarea name="hda" class="large" rows="6" placeholder="História e evolução desde a admissão"></textarea></label>
         </section>
+
+        <section>
+          <h2>2. Últimas 24 horas</h2>
+          <div class="vitals" aria-label="Sinais vitais nas últimas 24 horas">
+            <span class="vital-head">Parâmetro</span><span class="vital-head">Mínimo</span><span class="vital-head">Máximo</span>
+            <label class="vital-name" for="pasMin">PAS (mmHg)</label><input id="pasMin" name="pasMin" inputmode="decimal" aria-label="PAS mínima"><input name="pasMax" inputmode="decimal" aria-label="PAS máxima">
+            <label class="vital-name" for="padMin">PAD (mmHg)</label><input id="padMin" name="padMin" inputmode="decimal" aria-label="PAD mínima"><input name="padMax" inputmode="decimal" aria-label="PAD máxima">
+            <label class="vital-name" for="fcMin">FC (bpm)</label><input id="fcMin" name="fcMin" inputmode="decimal" aria-label="FC mínima"><input name="fcMax" inputmode="decimal" aria-label="FC máxima">
+            <label class="vital-name" for="spo2Min">SpO₂ (%)</label><input id="spo2Min" name="spo2Min" inputmode="decimal" aria-label="SpO2 mínima"><input name="spo2Max" inputmode="decimal" aria-label="SpO2 máxima">
+            <label class="vital-name" for="tempMin">Temperatura (°C)</label><input id="tempMin" name="tempMin" inputmode="decimal" aria-label="Temperatura mínima"><input name="tempMax" inputmode="decimal" aria-label="Temperatura máxima">
+          </div>
+          <div class="grid three">
+            <label>Débito urinário<textarea name="debitoUrinario" rows="2" placeholder="Ex.: 1.200 mL/24 h"></textarea></label>
+            <label>Drenos<textarea name="drenos" rows="2" placeholder="Identificação e volume"></textarea></label>
+            <label>Outros débitos<textarea name="outrosDebitos" rows="2"></textarea></label>
+          </div>
+          <label>Intercorrências<textarea name="intercorrencias" rows="3"></textarea></label>
+          <label>Queixas / evolução subjetiva<textarea name="subjetivo" rows="3"></textarea></label>
+        </section>
+
+        <section>
+          <h2>3. Exame físico</h2>
+          <p class="hint">Marque somente os achados que devem constar no texto.</p>
+          <div id="examGroups" class="exam-groups"></div>
+          <label class="glasgow">Glasgow (3–15)<input name="glasgow" type="number" min="3" max="15" inputmode="numeric"></label>
+        </section>
+
+        <section>
+          <h2>4. Exames complementares</h2>
+          <h3 class="subhead">Laboratoriais</h3>
+          <p class="hint">Digite apenas o resultado; o nome do exame é inserido automaticamente.</p>
+          <div id="labGrid" class="lab-grid"></div>
+          <label>Outros laboratoriais<input name="labOutros" placeholder="Ex.: Lactato 2,1 / TGO 40 / TGP 38"></label>
+          <label class="spaced">Exames de imagem<textarea name="imagem" rows="5" placeholder="Data e principais achados"></textarea></label>
+        </section>
+
+        <section>
+          <h2>5. Impressão e pendências</h2>
+          <label>Impressão<textarea name="impressao" class="large" rows="5"></textarea></label>
+          <div class="pending-header"><label>Pendências</label><button id="addPending" class="small secondary" type="button">+ Adicionar</button></div>
+          <div id="pendingItems" class="pending-items"></div>
+        </section>
+
+        <div class="actions">
+          <button class="primary" type="submit">Gerar evolução</button>
+          <button id="clearButton" class="secondary" type="button">Limpar formulário</button>
+        </div>
+      </form>
+
+      <section class="result-section" aria-live="polite">
+        <div class="result-header"><h2>Texto para prontuário</h2><button id="downloadButton" class="secondary" type="button" disabled>Baixar .txt</button><button id="copyButton" class="secondary" type="button" disabled>Copiar</button></div>
+        <textarea id="output" rows="18" readonly placeholder="Preencha apenas o necessário e selecione “Gerar evolução”."></textarea>
+      </section>
       </div>
     </main>
     <script src="app.js"></script>
