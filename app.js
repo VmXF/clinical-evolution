@@ -10,13 +10,13 @@ const examSystems = [
       { id: "ictericia", label: "Icterícia", type: "radio", options: ["Anictérico", "Ictérico"] },
       { id: "cianose", label: "Cianose", type: "radio", options: ["Acianótico", "Cianótico"] },
       { id: "hidratacao", label: "Hidratação", type: "radio", options: ["Hidratado", "Desidratado"] },
-      { id: "perfusao", label: "Perfusão", type: "radio", options: ["Perfusão periférica preservada", "TEC lentificado"] }
+      { id: "perfusao", label: "Perfusão", type: "radio", options: ["PCP <3s", "TEC lentificado"] }
     ]
   },
   {
     id: "neurologico", title: "Neurológico", fields: [
       { id: "glasgow", label: "Escala de Coma de Glasgow", type: "number", placeholder: "3–15", min: 3, max: 15 },
-      { id: "pupilas", label: "Pupilas", type: "radio", options: ["Isocóricas e fotorreagentes", "Anisocóricas", "Não fotorreagentes"] },
+      { id: "pupilas", label: "Pupilas", type: "radio", options: ["Pupilas Isocóricas e fotorreagentes", "Pupilas Anisocóricas", "Pupilas não fotorreagentes"] },
       { id: "focal", label: "Déficits focais", type: "radio", options: ["Sem déficits focais", "Déficit motor", "Déficit sensitivo", "Paresia", "Plegia"] },
       { id: "outros", label: "Outros achados", type: "checks", options: ["Sem rigidez de nuca", "Rigidez de nuca", "Tremores", "Convulsões", "Alteração de comportamento"] }
     ]
@@ -26,12 +26,12 @@ const examSystems = [
       { id: "ritmo", label: "Ritmo", type: "radio", options: ["Ritmo cardíaco regular", "Ritmo cardíaco irregular"] },
       { id: "bulhas", label: "Bulhas", type: "radio", options: ["Bulhas normofonéticas", "Bulhas hipofonéticas"] },
       { id: "sopros", label: "Sopros", type: "radio", options: ["Sem sopros", "Com sopro"] },
-      { id: "adicionais", label: "Achados adicionais", type: "checks", options: ["B3", "B4", "Turgência jugular", "Pulsos periféricos palpáveis", "Pulsos assimétricos", "Perfusão periférica reduzida"] }
+      { id: "adicionais", label: "Achados adicionais", type: "checks", options: ["B3", "B4", "Turgência jugular patológica"] }
     ]
   },
   {
     id: "respiratorio", title: "Respiratório", fields: [
-      { id: "suporte", label: "Suporte ventilatório", type: "radio", options: ["Respirando em ar ambiente", "Cateter nasal de O₂", "Máscara de oxigênio", "Ventilação não invasiva", "Ventilação mecânica"] },
+      { id: "suporte", label: "Suporte ventilatório", type: "radio", options: ["Respirando em AA", "Cateter nasal de O₂", "Máscara de oxigênio", "Ventilação não invasiva", "Ventilação mecânica"] },
       { id: "padrao", label: "Padrão respiratório", type: "radio", options: ["Eupneico", "Taquipneico", "Bradipneico"] },
       { id: "esforco", label: "Esforço respiratório", type: "radio", options: ["Sem esforço respiratório", "Uso de musculatura acessória", "Tiragem", "Batimento de asa nasal"] },
       { id: "ausculta", label: "Ausculta pulmonar", type: "radio", options: ["MVUA, sem ruídos adventícios", "Murmúrio vesicular diminuído"] },
@@ -43,7 +43,7 @@ const examSystems = [
     id: "abdome", title: "Abdome", fields: [
       { id: "inspecao", label: "Inspeção", type: "checks", options: ["Plano", "Globoso", "Distendido", "Escavado", "Ascite"] },
       { id: "rha", label: "Ruídos hidroaéreos", type: "radio", options: ["RHA presentes", "RHA diminuídos", "RHA aumentados", "RHA ausentes"] },
-      { id: "palpacao", label: "Palpação", type: "checks", options: ["Flácido", "Indolor à palpação", "Dor à palpação", "Defesa abdominal", "Descompressão brusca positiva", "Massas palpáveis", "Visceromegalias"] },
+      { id: "palpacao", label: "Palpação", type: "checks", options: ["Flácido", "Indolor à palpação", "Dor à palpação", "Não palpo massas ou VMG", "Defesa abdominal", "Descompressão brusca positiva", "Massas palpáveis", "Visceromegalias"] },
       { id: "especificos", label: "Sinais específicos", type: "checks", options: ["Murphy positivo", "Blumberg positivo", "Giordano positivo"] }
     ]
   },
