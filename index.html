@@ -122,6 +122,21 @@
           </div>
         </details>
 
+        <details class="collapsible-section conduct-section" id="conductSection">
+          <summary>
+            <span class="collapsible-summary-title">Condutas</span>
+            <span id="conductSummary" class="collapsible-summary-meta">Nenhuma conduta registrada</span>
+          </summary>
+
+          <div class="collapsible-content">
+            <div class="section-content-head">
+              <h3>Histórico diário</h3>
+              <button id="addPatientConductButton" class="small secondary" type="button">+ Adicionar conduta</button>
+            </div>
+            <div id="patientConductList" class="conduct-list"></div>
+          </div>
+        </details>
+
         <details class="collapsible-section pending-section pending-collapsible">
           <summary>
             <span class="collapsible-summary-title">Pendências</span>
@@ -255,11 +270,16 @@
           </section>
 
           <section>
-            <h2>5. Impressão e pendências</h2>
+            <h2>5. Impressão, conduta e pendências</h2>
 
             <label>Impressão
               <textarea name="impressao" class="large" rows="5"></textarea>
             </label>
+
+            <label>Conduta
+              <textarea name="conduta" class="large" rows="4" placeholder="Uma conduta por linha. Ex.: Ajusto dose do antibiótico pela função renal; prescrevo reposição de K+."></textarea>
+            </label>
+            <p class="hint">As condutas serão incluídas no texto da evolução e registradas no histórico diário do paciente ao salvar.</p>
 
             <div class="pending-header">
               <label>Pendências</label>
