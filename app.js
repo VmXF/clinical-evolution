@@ -344,6 +344,11 @@ function generateNote() {
 
   const impression = section("IMPRESSÃO", [value("impressao")]);
 
+  const conducts = value("conduta").split(/\r?\n/)
+    .map(item => item.trim().replace(/^[-•]\s*/, ""))
+    .filter(Boolean);
+  const conductSection = section("CONDUTA", conducts.map(item => `- ${item}`));
+
   const pending = [...pendingItems.querySelectorAll(".pending-row")]
     .map(row => row.querySelector('input[type="text"]').value.trim())
     .filter(Boolean);
@@ -359,6 +364,7 @@ function generateNote() {
     exam,
     complementary,
     impression,
+    conductSection,
     pendingSection
   ].filter(Boolean).join("\n\n");
 
