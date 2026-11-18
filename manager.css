@@ -159,3 +159,15 @@
   .collapsible-summary-meta{font-size:.72rem}
   .section-content-head{align-items:flex-start}
 }
+
+
+/* Histórico diário de condutas. */
+.conduct-list{display:grid;gap:16px}
+.conduct-day h3{font-size:.86rem;color:var(--brand-dark);margin:0 0 7px}
+.conduct-day-items{display:grid;gap:7px}
+.conduct-item{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:9px;padding:10px 11px;border:1px solid var(--line);border-radius:8px;background:#fbfdfd}
+.conduct-item p{margin:0;font-size:.9rem;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.conduct-actions{display:flex;gap:5px}
+.conduct-actions button{border:0;background:transparent;color:var(--brand-dark);font:inherit;font-size:.78rem;font-weight:700;cursor:pointer;padding:3px 5px}
+.conduct-actions .delete-conduct{color:#8a3124}
+@media(max-width:520px){.conduct-item{grid-template-columns:1fr}.conduct-actions{justify-content:flex-end}}
