@@ -85,6 +85,24 @@
     return state.patients.filter(patient => patient.status !== "archived");
   }
 
+  function normalizePatient(patient) {
+    return {
+      ...patient,
+      evolutions: Array.isArray(patient.evolutions) ? patient.evolutions : [],
+      pendings: Array.isArray(patient.pendings) ? patient.pendings : [],
+      condutas: Array.isArray(patient.condutas) ? patient.condutas : [],
+      antibiotics: Array.isArray(patient.antibiotics) ? patient.antibiotics : []
+    };
+  }
+
+  function normalizeState(savedState) {
+    return {
+      ...savedState,
+      beds: Array.isArray(savedState.beds) ? savedState.beds.map(String) : [...DEFAULT_BEDS],
+      patients: Array.isArray(savedState.patients) ? savedState.patients.map(normalizePatient) : []
+    };
+  }
+
   function openDatabase() {
     return new Promise((resolve, reject) => {
       if (!("indexedDB" in window)) {
@@ -131,7 +149,7 @@
   }
 
   function makeBackupPayload() {
-    return { app: "Minha Enfermaria", version: 1, exportedAt: new Date().toISOString(), state };
+    return { app: "Minha Enfermaria", version: 2, exportedAt: new Date().toISOString(), state };
   }
 
   function persist() {
@@ -548,7 +566,7 @@
       if (!parseISO(admissionDate)) throw new Error("Informe uma data de internação válida.");
       const patient = {
         id: uid(), bed, label: String(data.get("label") || "").trim(), admissionDate,
-        status: "active", evolutions: [], pendings: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+        status: "active", evolutions: [], pendings: [], condutas: [], antibiotics: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
       };
       state.patients.push(patient);
       await persist();
@@ -585,8 +603,103 @@
       if (evolution) editEvolution(patient, evolution);
     }));
 
+    renderCondutas(patient);
     renderPendings(patient);
     $("#patientScreen").dataset.patientId = patient.id;
+  }
+
+  function renderCondutas(patient) {
+    const list = $("#patientConductList");
+    const condutas = Array.isArray(patient.condutas) ? patient.condutas : [];
+    const today = localISO();
+    const todayCount = condutas.filter(item => item.date === today).length;
+    $("#conductSummary").textContent = condutas.length
+      ? `${todayCount} hoje · ${condutas.length} no histórico`
+      : "Nenhuma conduta registrada";
+
+    const groups = new Map();
+    [...condutas]
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+      .forEach(item => {
+        const date = parseISO(item.date) ? item.date : "sem-data";
+        if (!groups.has(date)) groups.set(date, []);
+        groups.get(date).push(item);
+      });
+
+    if (!groups.size) {
+      list.innerHTML = `<p class="muted-empty">Nenhuma conduta registrada. Use “Adicionar conduta” ou o campo Conduta do gerador.</p>`;
+      return;
+    }
+
+    list.innerHTML = [...groups.entries()].map(([date, entries]) => `
+      <section class="conduct-day">
+        <h3>${date === "sem-data" ? "Data não informada" : escapeHTML(fmtDate(date))}</h3>
+        <div class="conduct-day-items">
+          ${entries.map(item => `
+            <article class="conduct-item" data-conduct-id="${escapeHTML(item.id)}">
+              <p>${escapeHTML(item.text || "")}</p>
+              <div class="conduct-actions">
+                <button type="button" class="edit-conduct">Editar</button>
+                <button type="button" class="delete-conduct">Excluir</button>
+              </div>
+            </article>`).join("")}
+        </div>
+      </section>`).join("");
+
+    list.querySelectorAll(".conduct-item").forEach(row => {
+      const item = condutas.find(entry => entry.id === row.dataset.conductId);
+      row.querySelector(".edit-conduct").addEventListener("click", () => editConduct(patient, item));
+      row.querySelector(".delete-conduct").addEventListener("click", async () => {
+        if (!confirm("Excluir esta conduta do histórico?")) return;
+        patient.condutas = patient.condutas.filter(entry => entry.id !== item.id);
+        patient.updatedAt = new Date().toISOString();
+        await persist();
+        renderPatient(patient);
+        renderHome();
+      });
+    });
+  }
+
+  function addPatientConduct(patient) {
+    showModal("Adicionar conduta", `
+      <label>Data<input name="date" type="date" value="${localISO()}" required></label>
+      <label>Conduta<textarea name="text" rows="4" maxlength="1200" placeholder="Descreva a conduta realizada" required></textarea></label>
+      <p class="form-hint">O registro ficará no histórico do paciente, agrupado pela data informada. Ele não altera uma evolução já salva.</p>`, async data => {
+      const date = String(data.get("date") || "");
+      const text = String(data.get("text") || "").trim();
+      if (!parseISO(date)) throw new Error("Informe uma data válida.");
+      if (!text) throw new Error("Descreva a conduta.");
+      const now = new Date().toISOString();
+      patient.condutas.push({ id: uid(), date, text, createdAt: now, updatedAt: now, source: "manual" });
+      patient.updatedAt = now;
+      await persist();
+      closeModal();
+      renderPatient(patient);
+      renderHome();
+      showToast("Conduta registrada.");
+    });
+  }
+
+  function editConduct(patient, conduct) {
+    if (!conduct) return;
+    showModal("Editar conduta", `
+      <label>Data<input name="date" type="date" value="${escapeHTML(conduct.date || localISO())}" required></label>
+      <label>Conduta<textarea name="text" rows="4" maxlength="1200" required>${escapeHTML(conduct.text || "")}</textarea></label>
+      <p class="form-hint">A edição altera este registro do histórico diário, não o texto da evolução já salva.</p>`, async data => {
+      const date = String(data.get("date") || "");
+      const text = String(data.get("text") || "").trim();
+      if (!parseISO(date)) throw new Error("Informe uma data válida.");
+      if (!text) throw new Error("Descreva a conduta.");
+      conduct.date = date;
+      conduct.text = text;
+      conduct.updatedAt = new Date().toISOString();
+      patient.updatedAt = conduct.updatedAt;
+      await persist();
+      closeModal();
+      renderPatient(patient);
+      renderHome();
+      showToast("Conduta atualizada.");
+    });
   }
 
   function renderPendings(patient) {
@@ -624,7 +737,7 @@
     const patient = getPatient(id);
     if (!patient) return;
     currentPatientId = patient.id;
-    ["#antibioticSection", "#evolutionSection", ".pending-collapsible"].forEach(selector => {
+    ["#antibioticSection", "#evolutionSection", "#conductSection", ".pending-collapsible"].forEach(selector => {
       const section = $(selector);
       if (section) section.open = false;
     });
@@ -656,11 +769,49 @@
     });
   }
 
+  function extractConductLines(noteText) {
+    const lines = String(noteText || "").split(/\r?\n/);
+    const start = lines.findIndex(line => line.trim().toLocaleUpperCase("pt-BR") === "CONDUTA");
+    if (start < 0) return [];
+    const result = [];
+    for (const line of lines.slice(start + 1)) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        if (result.length) break;
+        continue;
+      }
+      if (!/^[-•]\s+/.test(trimmed)) break;
+      const value = trimmed.replace(/^[-•]\s+/, "").trim();
+      if (value) result.push(value);
+    }
+    return result;
+  }
+
+  function syncEvolutionConducts(patient, evolution, noteText, date) {
+    const linked = patient.condutas.filter(item => item.source === "evolution" && item.evolutionId === evolution.id);
+    const texts = extractConductLines(noteText);
+    linked.forEach((item, index) => {
+      if (texts[index]) {
+        item.text = texts[index];
+        item.date = date;
+        item.updatedAt = evolution.updatedAt;
+      } else {
+        patient.condutas = patient.condutas.filter(entry => entry.id !== item.id);
+      }
+    });
+    for (let index = linked.length; index < texts.length; index++) {
+      patient.condutas.push({
+        id: uid(), date, text: texts[index], createdAt: evolution.updatedAt,
+        updatedAt: evolution.updatedAt, source: "evolution", evolutionId: evolution.id
+      });
+    }
+  }
+
   function editEvolution(patient, evolution) {
     showModal("Visualizar / editar evolução", `
       <label>Data da evolução<input name="date" type="date" value="${escapeHTML(evolution.date)}" required></label>
       <label>Texto da evolução<textarea name="text" class="evolution-editor" rows="16" required>${escapeHTML(evolution.text)}</textarea></label>
-      <p class="form-hint">A edição altera apenas esta evolução. O D exibido no histórico é recalculado pela data de internação e pela data desta evolução.</p>
+      <p class="form-hint">A alteração da seção CONDUTA também atualiza os registros diários que foram gerados por esta evolução. Condutas adicionadas diretamente no painel permanecem independentes.</p>
       <button type="button" class="text-danger" id="deleteEvolutionButton">Excluir esta evolução</button>`, async data => {
       const date = data.get("date");
       const text = String(data.get("text") || "").trim();
@@ -669,6 +820,7 @@
       evolution.date = date;
       evolution.text = text;
       evolution.updatedAt = new Date().toISOString();
+      syncEvolutionConducts(patient, evolution, text, date);
       patient.updatedAt = new Date().toISOString();
       await persist();
       closeModal();
@@ -780,6 +932,13 @@
       .map(input => input.value.trim()).filter(Boolean);
   }
 
+  function formConductTexts() {
+    const field = $("#noteForm [name=conduta]");
+    return String(field?.value || "").split(/\r?\n/)
+      .map(item => item.trim().replace(/^[-•]\s*/, ""))
+      .filter(Boolean);
+  }
+
   function saveOutput() {
     const text = $("#output").value.trim();
     if (!text) {
@@ -796,7 +955,7 @@
     showModal("Salvar evolução em", `
       <label>Paciente de destino<select name="patientId" required>${selectOptions}</select></label>
       <label>Data da evolução<input name="date" type="date" value="${localISO()}" required></label>
-      <p class="form-hint">As pendências digitadas no formulário também serão adicionadas à lista longitudinal do paciente, sem duplicar pendências abertas com o mesmo texto.</p>`, async data => {
+      <p class="form-hint">As condutas serão incluídas no histórico diário na data da evolução. As pendências serão adicionadas à lista longitudinal, sem duplicar pendências abertas com o mesmo texto.</p>`, async data => {
       const patient = getPatient(String(data.get("patientId")));
       if (!patient || patient.status === "archived") throw new Error("Selecione um paciente ativo.");
       const date = String(data.get("date") || "");
@@ -804,6 +963,9 @@
       const now = new Date().toISOString();
       const evolution = { id: uid(), date, text, createdAt: now, updatedAt: now };
       patient.evolutions.push(evolution);
+      formConductTexts().forEach(conductText => {
+        patient.condutas.push({ id: uid(), date, text: conductText, createdAt: now, updatedAt: now, source: "evolution", evolutionId: evolution.id });
+      });
       formPendingTexts().forEach(pendingText => {
         const duplicate = patient.pendings.some(item => !item.done && item.text.toLocaleLowerCase("pt-BR") === pendingText.toLocaleLowerCase("pt-BR"));
         if (!duplicate) patient.pendings.push({ id: uid(), text: pendingText, done: false, createdAt: now, completedAt: null });
@@ -814,7 +976,7 @@
       currentPatientId = patient.id;
       renderHome();
       openPatient(patient.id);
-      showToast("Evolução salva no paciente.");
+      showToast(formConductTexts().length ? "Evolução e condutas salvas no paciente." : "Evolução salva no paciente.");
     });
   }
 
@@ -857,7 +1019,7 @@
         const validPatients = payload.state.patients.every(patient => patient.id && patient.bed && parseISO(patient.admissionDate) && Array.isArray(patient.evolutions) && Array.isArray(patient.pendings));
         if (!validPatients) throw new Error("O backup contém registros incompletos ou inválidos.");
         if (!confirm("A restauração substituirá os dados atualmente salvos neste dispositivo. Faça um backup antes de continuar. Deseja prosseguir?")) return;
-        state = { beds: [...new Set(payload.state.beds.map(String))], patients: payload.state.patients };
+        state = normalizeState({ beds: [...new Set(payload.state.beds.map(String))], patients: payload.state.patients });
         await persist();
         currentPatientId = null;
         renderHome();
@@ -1028,6 +1190,11 @@
       const patient = getPatient(currentPatientId);
       if (patient) addLongPending(patient);
     });
+    $("#addPatientConductButton").addEventListener("click", () => {
+      const patient = getPatient(currentPatientId);
+      if (patient && patient.status !== "archived") addPatientConduct(patient);
+      else showToast("Reative o paciente para registrar condutas.");
+    });
 
     bindAntibioticControls();
 
@@ -1043,10 +1210,14 @@
     try {
       db = await openDatabase();
       const saved = await readState();
-      if (saved && Array.isArray(saved.beds) && Array.isArray(saved.patients)) state = saved;
+      let migrated = false;
+      if (saved && Array.isArray(saved.beds) && Array.isArray(saved.patients)) {
+        migrated = saved.patients.some(patient => !Array.isArray(patient.condutas) || !Array.isArray(patient.antibiotics));
+        state = normalizeState(saved);
+      }
       await loadExternalBackupHandle();
       await refreshStorageProtection(true);
-      if (!saved) await persist();
+      if (!saved || migrated) await persist();
       bindEvents();
       addSaveButton();
       updateExternalBackupUI();
