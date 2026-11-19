@@ -103,8 +103,16 @@
     };
   }
 
+  function withTimeout(promise, milliseconds, message) {
+    let timeoutId;
+    const timeout = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(message)), milliseconds);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+  }
+
   function openDatabase() {
-    return new Promise((resolve, reject) => {
+    const opening = new Promise((resolve, reject) => {
       if (!("indexedDB" in window)) {
         reject(new Error("Este navegador não disponibiliza IndexedDB."));
         return;
@@ -114,10 +122,14 @@
         const database = request.result;
         if (!database.objectStoreNames.contains(STORE_NAME)) database.createObjectStore(STORE_NAME);
       };
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        request.result.onversionchange = () => request.result.close();
+        resolve(request.result);
+      };
       request.onerror = () => reject(request.error || new Error("Falha ao abrir o armazenamento local."));
-      request.onblocked = () => reject(new Error("O armazenamento está bloqueado por outra aba do aplicativo."));
+      request.onblocked = () => reject(new Error("O armazenamento está bloqueado por outra aba do aplicativo. Feche outras abas abertas e recarregue a página."));
     });
+    return withTimeout(opening, 10000, "O armazenamento local demorou mais que o esperado para abrir. Feche outras abas do aplicativo e recarregue a página.");
   }
 
   function readState() {
@@ -1209,25 +1221,44 @@
   async function init() {
     try {
       db = await openDatabase();
-      const saved = await readState();
+      const saved = await withTimeout(
+        readState(),
+        10000,
+        "A leitura dos dados locais demorou mais que o esperado. Feche outras abas do aplicativo e recarregue a página."
+      );
       let migrated = false;
       if (saved && Array.isArray(saved.beds) && Array.isArray(saved.patients)) {
         migrated = saved.patients.some(patient => !Array.isArray(patient.condutas) || !Array.isArray(patient.antibiotics));
         state = normalizeState(saved);
       }
-      await loadExternalBackupHandle();
-      await refreshStorageProtection(true);
-      if (!saved || migrated) await persist();
+
+      // A interface essencial não depende de permissões ou APIs opcionais.
       bindEvents();
       addSaveButton();
       updateExternalBackupUI();
       renderHome();
       showScreen("home");
+
       if (location.protocol === "file:") {
         $("#storageNotice").textContent = "Arquivo local: armazenamento e acesso a arquivos dependem do navegador. Use o site HTTPS instalado como PWA.";
       }
+
+      // Migração e recursos opcionais seguem em segundo plano, sem bloquear os controles.
+      if (!saved || migrated) {
+        persist().catch(error => {
+          console.error("Falha ao atualizar a estrutura dos dados locais:", error);
+          showToast("Não foi possível atualizar os dados locais. Exporte um backup e recarregue o aplicativo.");
+        });
+      }
+      loadExternalBackupHandle().catch(error => {
+        console.warn("Não foi possível carregar a configuração do backup externo:", error);
+      });
+      refreshStorageProtection(false).catch(error => {
+        console.warn("Não foi possível verificar a proteção do armazenamento:", error);
+      });
     } catch (error) {
-      $("#managerHome").innerHTML = `<div class="manager-warning"><strong>Armazenamento local indisponível.</strong><p>${escapeHTML(error.message)}</p><p>Não utilize o aplicativo para registrar dados enquanto o armazenamento persistente não estiver funcionando.</p></div>`;
+      console.error("Falha na inicialização da enfermaria:", error);
+      $("#managerHome").innerHTML = `<div class="manager-warning"><strong>Armazenamento local indisponível.</strong><p>${escapeHTML(error.message)}</p><p>Não utilize o aplicativo para registrar dados enquanto o armazenamento persistente não estiver funcionando. Feche outras abas do aplicativo e tente novamente.</p></div>`;
       showScreen("home");
     }
   }
