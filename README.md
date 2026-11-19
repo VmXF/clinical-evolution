@@ -5,8 +5,9 @@ PWA local para gerar texto de evolução de enfermaria. Não é um sistema de pr
 ## Instalação no Android
 
 1. Hospede esta pasta em um endereço HTTPS ou abra-a pelo servidor local da instituição; a instalação por PWA exige um contexto seguro (HTTPS ou localhost).
-2. No Chrome para Android, abra o endereço e use **⋮ > Instalar app** (ou **Adicionar à tela inicial**).
-3. Abra o ícone instalado uma vez com conexão disponível para o carregamento inicial. Depois, a aplicação funciona offline.
+2. No Chrome para Android, abra o endereço e use **Instalar app** no cabeçalho ou **⋮ > Instalar app / Adicionar à tela inicial**.
+3. Se o prompt automático não aparecer, o botão orienta a instalação pelo menu do navegador. A instalação exige HTTPS, manifesto válido e suporte do navegador; o Service Worker fornece o funcionamento offline.
+4. Abra o ícone instalado uma vez com conexão disponível para o carregamento inicial. Depois, a aplicação funciona offline.
 
 ## Uso
 
@@ -29,4 +30,4 @@ Abra a aplicação instalada, desligue a conexão do dispositivo, reabra-a e ger
 - A data de internação permanece no cadastro do paciente e é usada para calcular o DIH; não é repetida no formulário de evolução.
 - Os registros ficam no IndexedDB do navegador neste dispositivo. Exporte backups JSON regularmente. A restauração substitui os dados locais atuais.
 
-O uso como PWA requer servir os arquivos em HTTPS ou localhost. Após abrir/instalar e armazenar o app shell, a interface pode ser carregada offline. O armazenamento local não é sincronizado nem criptografado automaticamente.
+O uso como PWA requer servir os arquivos em HTTPS ou localhost. O pacote inclui ícones PNG 192×192 e 512×512, manifesto com escopo e Service Worker versão 17. O Service Worker atualiza os arquivos pela rede quando disponível e usa o cache apenas como fallback offline. A inicialização da interface não aguarda a verificação de backup externo ou a proteção persistente do armazenamento. O armazenamento local não é sincronizado nem criptografado automaticamente.
