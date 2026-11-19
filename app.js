@@ -419,23 +419,67 @@ document.querySelector("#copyButton").addEventListener("click", async () => {
   setTimeout(() => button.textContent = original, 1600);
 });
 
-let installPrompt;
+let installPrompt = null;
+const installButton = document.querySelector("#installButton");
+const isRunningInstalled = () =>
+  window.matchMedia?.("(display-mode: standalone)").matches ||
+  window.navigator.standalone === true;
+
+if (installButton && !isRunningInstalled()) {
+  // Orienta a instalação mesmo quando o navegador não dispara beforeinstallprompt.
+  installButton.classList.remove("hidden");
+}
 
 window.addEventListener("beforeinstallprompt", event => {
   event.preventDefault();
   installPrompt = event;
-  document.querySelector("#installButton").classList.remove("hidden");
+  installButton?.classList.remove("hidden");
 });
 
-document.querySelector("#installButton").addEventListener("click", async () => {
+window.addEventListener("appinstalled", () => {
+  installPrompt = null;
+  installButton?.classList.add("hidden");
+});
+
+installButton?.addEventListener("click", async () => {
   if (installPrompt) {
-    await installPrompt.prompt();
-    installPrompt = null;
+    try {
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      if (choice?.outcome === "accepted") installButton.classList.add("hidden");
+    } catch (error) {
+      console.warn("O prompt de instalação não pôde ser aberto:", error);
+    } finally {
+      installPrompt = null;
+    }
+    return;
   }
+
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  window.alert(isIOS
+    ? "Para instalar: abra o menu Compartilhar do Safari e selecione 'Adicionar à Tela de Início'."
+    : "Para instalar no Chrome: abra o menu ⋮ e escolha 'Instalar app' ou 'Adicionar à tela inicial'. Se a opção não aparecer, confirme que está usando o endereço HTTPS e recarregue a página.");
 });
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () =>
-    navigator.serviceWorker.register("./service-worker.js")
-  );
+  window.addEventListener("load", async () => {
+    try {
+      const hadController = Boolean(navigator.serviceWorker.controller);
+      const registration = await navigator.serviceWorker.register("./service-worker.js", {
+        updateViaCache: "none"
+      });
+      registration.update().catch(error => console.warn("Falha ao verificar atualização do app:", error));
+
+      let refreshing = false;
+      if (hadController) {
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (refreshing) return;
+          refreshing = true;
+          window.location.reload();
+        });
+      }
+    } catch (error) {
+      console.warn("Não foi possível registrar o modo offline:", error);
+    }
+  });
 }
